@@ -1,0 +1,34 @@
+#!/bin/bash
+
+# File directory
+__dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+. $__dir/semesterf # importation des fonctions
+
+usage() {
+    echo -n "Usage: semester "
+    case $1 in
+        0)
+            echo "[-c create] [-i <file> import]" 1>&2;
+            ;;
+        i)
+            echo "-i <file>" 1>&2;
+            ;;
+    esac
+    exit 1
+}
+
+while getopts ":i:c" opt; do
+    case $opt in
+        i)
+            import ${OPTARG}
+            ;;
+        :)
+            usage i
+            ;;
+        c)
+            create
+            ;;
+    esac
+done
+[ $OPTIND -eq 1 ] && usage 0

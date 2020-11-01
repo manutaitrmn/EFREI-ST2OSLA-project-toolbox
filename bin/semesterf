@@ -1,0 +1,10 @@
+#!/bin/bash
+
+create() {
+    echo "Creation!"
+}
+
+import() {
+    ! [ -f "$1" ] && echo "Erreur: $1 n'existe pas!"; exit 1;
+    echo "Importation!"
+}
