@@ -1,10 +1,192 @@
 #!/bin/bash
 
+# REMOVES LEADING AND TRAILING WHITESPACES
+trimlts() {
+    string=$1
+    shopt -s extglob
+    string="${string##*( )}"
+    string="${string%%*( )}"
+    echo "$string"
+}
+
+# REPLACES WHITESPACES OF A GIVEN STRING TO UNDERSCORES
+spacend() {
+    string=$1
+    string=${string// /_}
+    echo "$string"
+}
+
 create() {
     echo "Creation!"
 }
 
+# CREATE SEMESTER FROM FILE
 import() {
-    ! [ -f "$1" ] && echo "Erreur: $1 n'existe pas!"; exit 1;
-    echo "Importation!"
+    file="$1"
+    # CHECK IF SEMESTER SHEET FILE EXISTS
+    if ! [ -f "$1" ]; then
+        echo "Erreur: $1 n'existe pas!"; exit 1;
+    fi
+
+    # CREATE SETUP SCRIPT
+    echo "#!/bin/bash" > semscript.sh
+    chmod +x semscript.sh
+
+    # READ SEMESTER SHEET FILE LINE BY LINE
+    c=0;error=false;order=""
+    while IFS= read -r line
+    do
+        # INCREMENT TO KEEP TRACK OF THE LINE
+        ((c=c+1))
+
+        # PASS CURRENT LOOP IF LINE EMPTY
+        [ -z "$line" ] && continue
+
+        # EXIT IF FIELD STRUCTURE NOT RESPECTED
+        ccolon=$(echo "$line" | grep -o : | wc -l)
+        if ! [ "$ccolon" -eq 1 ]; then
+            echo -n "$file at line $c : "
+            [ "$ccolon" -lt 1 ] && echo "A field or ':' is missing."
+            [ "$ccolon" -gt 1 ] && echo "Too many fields or ':'."
+            error=true;break
+        fi
+
+        # CHECK BY PROPERTY FIELD : Semester,UE,Module,...
+        prop=$(echo "$line" | cut -d : -f 1)
+        case $prop in
+            Semester)
+                # CHECK & EXIT IF STRUCTURE ORDER IS INVALID
+                if ! [ "$order" = "" ]; then
+                    echo "Error at line $c: Invalid structure!"
+                    error=true;break
+                else
+                    order="semester"
+                fi
+
+                # PROCESS VALUE
+                semester=$(echo "$line" | cut -d : -f 2)
+                semester=$(trimlts "$semester")
+                semester=$(spacend "$semester")
+
+                # EXIT IF SEMESTER DIR ALREADY EXISTS
+                if [ -d "$semester" ]; then
+                    echo "Error : $semester directory already exists!"
+                    error=true;break
+                fi
+
+                # APPEND COMMANDS TO SETUP SCRIPT
+                cat <<EOT >> greetings.txt
+                    line 1
+                    line 2
+                EOT
+                echo "mkdir $semester" >> semscript.sh
+                echo "touch $semester/semester.info" >> semscript.sh
+                ;;
+            UE)
+                # CHECK & EXIT IF STRUCTURE ORDER IS INVALID
+                if [ "$order" = "semester" ] || [ "$order" = "teaching" ]; then
+                    order="ue"
+                else
+                    echo "Error at line $c: Invalid structure!"
+                    error=true;break
+                fi
+
+                # PROCESS VALUE
+                ue=$(echo "$line" | cut -d : -f 2)
+                ue=$(trimlts "$ue")
+                ue=$(spacend "$ue")
+
+                # EXIT IF UE DIR ALREADY EXISTS
+                if [ -d "$semester/$ue" ]; then
+                    echo "Error : $semester/$ue directory already exists!"
+                    error=true;break
+                fi
+
+                # APPEND COMMANDS TO SETUP SCRIPT
+                echo "mkdir $semester/$ue" >> semscript.sh
+                ;;
+            Module)
+                # CHECK & EXIT IF STRUCTURE ORDER IS INVALID
+                if [ "$order" = "ue" ] || [ "$order" = "teaching" ]; then
+                    order="module"
+                else
+                    echo "Error at line $c: Invalid structure!"
+                    error=true;break
+                fi
+
+                # PROCESS VALUE
+                module_all=$(echo "$line" | cut -d : -f 2)
+                module=$(echo "$module_all" | cut -d , -f 1)
+                module_coef=$(echo "$module_all" | cut -d , -f 2)
+                module=$(trimlts "$module")
+                module=$(spacend "$module")
+
+                # EXIT IF MODULE DIR ALREADY EXISTS
+                if [ -d "$semester/$ue/$module" ]; then
+                    echo "Error : $semester/$ue/$module directory already exists!"
+                    error=true;break
+                fi
+
+                # APPEND COMMANDS TO SETUP SCRIPT
+                echo "mkdir $semester/$ue/$module" >> semscript.sh
+                ;;
+            Teacher)
+                # CHECK & EXIT IF STRUCTURE ORDER IS INVALID
+                if [ "$order" = "module" ]; then
+                    order="teacher"
+                else
+                    echo "Error at line $c: Invalid structure!"
+                    error=true;break
+                fi
+                ;;
+            Email)
+                # CHECK & EXIT IF STRUCTURE ORDER IS INVALID
+                if [ "$order" = "teacher" ]; then
+                    order="email"
+                else
+                    echo "Error at line $c: Invalid structure!"
+                    error=true;break
+                fi
+                ;;
+            Teaching)
+                # CHECK & EXIT IF STRUCTURE ORDER IS INVALID
+                if [ "$order" = "email" ] || [ "$order" = "teaching" ]; then
+                    order="teaching"
+                else
+                    echo "Error at line $c: Invalid structure!"
+                    error=true;break
+                fi
+
+                # PROCESS VALUE
+                teaching_all=$(echo "$line" | cut -d : -f 2)
+                teaching=$(echo "$teaching_all" | cut -d , -f 1)
+                teaching_coef=$(echo "$teaching_all" | cut -d , -f 2)
+                teaching=$(trimlts "$teaching")
+                teaching=$(spacend "$teaching")
+
+                # EXIT IF TEACHING DIR ALREADY EXISTS
+                if [ -d "$semester/$ue/$module/$teaching" ]; then
+                    echo "Error : $semester/$ue/$module/$teaching directory already exists!"
+                    error=true;break
+                fi
+
+                # APPEND COMMANDS TO SETUP SCRIPT
+                echo "mkdir $semester/$ue/$module/$teaching" >> semscript.sh
+                ;;
+            *)
+                echo "$file at line $c : Field \"$prop\" not recognized! Please use Semester,UE,Module,Teacher,Email or Teaching."
+                error=true;break
+                ;;
+        esac
+    done < "$file"
+
+    if "$error"; then
+        rm semscript.sh
+        exit 1
+    fi
+
+    #./semscript.sh
+    #cat "$file" > "$semester/semester.info"
+    #rm semscript.sh
+
 }

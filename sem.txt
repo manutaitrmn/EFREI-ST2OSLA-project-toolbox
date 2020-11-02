@@ -1,0 +1,46 @@
+Semester:S7
+
+UE:Networks
+
+Module:Cross-Technology Convergent Networks,1
+Teacher:Tarek NADOUR
+Email:tarek.nadour@efrei.net
+Teaching:TP,0.3
+Teaching:TD,0.2
+Teaching:DE,0.5
+
+Module:Scripting and Monitoring,1
+Teacher:Salim BENAYOUNE
+Email:salim.benayoune@efrei.net
+Teaching:TP,0.3
+Teaching:TD,0.2
+Teaching:DE,0.5
+
+Module:Switched and Routed Networks,1
+Teacher:Abdelkrim LAHLOU
+Email:lahlou.abdelkrim@efrei.net
+Teaching:TP,0.2
+Teaching:TP,0.3
+Teaching:DE,0.5
+
+UE:Security and Virtualization
+
+Module:Cryptography and Network Security,1
+Teacher:Salim BENAYOUNE
+Email:salim.benayoune@efrei.net
+Teaching:TP,0.2
+Teaching:TD,0.3
+Teaching:DE,0.5
+
+Module:Operating System and Linux Administration,1
+Teacher:Yessin NEGGAZ
+Email:yessin.neggaz@efrei.net
+Teaching:TP,0.2
+Teaching:PROJECT,0.3
+Teaching:DE,0.5
+
+Module:Virtualization and Storage,1
+Teacher:Didier ILKI
+Email:didier.ilki@efrei.net
+Teaching:TP,0.3
+Teaching:DE,0.7
