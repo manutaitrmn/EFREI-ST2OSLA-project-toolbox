@@ -20,7 +20,7 @@ Module:Switched and Routed Networks,1
 Teacher:Abdelkrim LAHLOU
 Email:lahlou.abdelkrim@efrei.net
 Teaching:TP,0.2
-Teaching:TP,0.3
+Teaching:TD,0.3
 Teaching:DE,0.5
 
 UE:Security and Virtualization

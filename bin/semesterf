@@ -16,6 +16,7 @@ spacend() {
     echo "$string"
 }
 
+# CREATE SEMESTER WITH FORM
 create() {
     echo "Creation!"
 }
@@ -25,12 +26,13 @@ import() {
     file="$1"
     # CHECK IF SEMESTER SHEET FILE EXISTS
     if ! [ -f "$1" ]; then
-        echo "Erreur: $1 n'existe pas!"; exit 1;
+        echo "Error: File $1 does not exist";exit
     fi
 
     # CREATE SETUP SCRIPT
-    echo "#!/bin/bash" > semscript.sh
-    chmod +x semscript.sh
+    setup="setup-semester.sh"
+    echo "#!/bin/bash" > "$setup"
+    chmod +x "$setup"
 
     # READ SEMESTER SHEET FILE LINE BY LINE
     c=0;error=false;order=""
@@ -45,9 +47,9 @@ import() {
         # EXIT IF FIELD STRUCTURE NOT RESPECTED
         ccolon=$(echo "$line" | grep -o : | wc -l)
         if ! [ "$ccolon" -eq 1 ]; then
-            echo -n "$file at line $c : "
-            [ "$ccolon" -lt 1 ] && echo "A field or ':' is missing."
-            [ "$ccolon" -gt 1 ] && echo "Too many fields or ':'."
+            echo -n "$file at line $c: "
+            [ "$ccolon" -lt 1 ] && echo "A field or a colon (:) is missing."
+            [ "$ccolon" -gt 1 ] && echo "Too many fields or colons (:)."
             error=true;break
         fi
 
@@ -57,7 +59,7 @@ import() {
             Semester)
                 # CHECK & EXIT IF STRUCTURE ORDER IS INVALID
                 if ! [ "$order" = "" ]; then
-                    echo "Error at line $c: Invalid structure!"
+                    echo "$file at line $c: A semester must be defined only once."
                     error=true;break
                 else
                     order="semester"
@@ -70,24 +72,28 @@ import() {
 
                 # EXIT IF SEMESTER DIR ALREADY EXISTS
                 if [ -d "$semester" ]; then
-                    echo "Error : $semester directory already exists!"
+                    echo "$file at line $c: Semester dir $semester already exists."
+                    error=true;break
+                fi
+
+                # EXIT IF INSTRUCTION IS DUPLICATED
+                cmd="mkdir $semester"
+                if cat "$setup" | grep -q "$cmd"; then
+                    echo "$file at line $c: Duplicated semester $semester."
                     error=true;break
                 fi
 
                 # APPEND COMMANDS TO SETUP SCRIPT
-                cat <<EOT >> greetings.txt
-                    line 1
-                    line 2
-                EOT
-                echo "mkdir $semester" >> semscript.sh
-                echo "touch $semester/semester.info" >> semscript.sh
+                echo "mkdir $semester" >> "$setup"
+                echo "touch $semester/semester.info" >> "$setup"
                 ;;
             UE)
                 # CHECK & EXIT IF STRUCTURE ORDER IS INVALID
                 if [ "$order" = "semester" ] || [ "$order" = "teaching" ]; then
                     order="ue"
                 else
-                    echo "Error at line $c: Invalid structure!"
+                    echo -n "$file at line $c: "
+                    [ -z "$semester" ] && echo "Semester is not defined at the beginning of the file." || echo "Teachings are missing for the module $module."
                     error=true;break
                 fi
 
@@ -96,46 +102,59 @@ import() {
                 ue=$(trimlts "$ue")
                 ue=$(spacend "$ue")
 
-                # EXIT IF UE DIR ALREADY EXISTS
-                if [ -d "$semester/$ue" ]; then
-                    echo "Error : $semester/$ue directory already exists!"
+                # EXIT IF INSTRUCTION IS DUPLICATED
+                cmd="mkdir $semester/$ue"
+                if cat "$setup" | grep -q "$cmd"; then
+                    echo "$file at line $c: A UE ($ue) must be defined only once."
                     error=true;break
                 fi
 
                 # APPEND COMMANDS TO SETUP SCRIPT
-                echo "mkdir $semester/$ue" >> semscript.sh
+                echo "$cmd" >> "$setup"
                 ;;
             Module)
                 # CHECK & EXIT IF STRUCTURE ORDER IS INVALID
                 if [ "$order" = "ue" ] || [ "$order" = "teaching" ]; then
                     order="module"
                 else
-                    echo "Error at line $c: Invalid structure!"
+                    echo -n "$file at line $c: "
+                    [ -z "$ue" ] && echo "No UE defined yet." || echo "Teaching field(s) or even more are missing for the module \"$module_raw\"."
                     error=true;break
                 fi
 
                 # PROCESS VALUE
                 module_all=$(echo "$line" | cut -d : -f 2)
-                module=$(echo "$module_all" | cut -d , -f 1)
+                module_raw=$(echo "$module_all" | cut -d , -f 1)
                 module_coef=$(echo "$module_all" | cut -d , -f 2)
-                module=$(trimlts "$module")
-                module=$(spacend "$module")
+                module_raw=$(trimlts "$module_raw")
+                module=$(spacend "$module_raw")
 
-                # EXIT IF MODULE DIR ALREADY EXISTS
-                if [ -d "$semester/$ue/$module" ]; then
-                    echo "Error : $semester/$ue/$module directory already exists!"
+                if ! echo "$module_raw" | grep -qP "^[a-zA-Z- ]+$";then
+                    echo "$file at line $c: Incorrect module name."
+                    error=true;break
+                fi
+
+                if ! echo "$module_all" | grep -q "," || ! echo "$module_coef" | grep -qP "^[1-9]$";then
+                    echo "$file at line $c: No coefficient set for the module \"$module\"."
+                    error=true;break
+                fi
+
+                # EXIT IF INSTRUCTION IS DUPLICATED
+                cmd="mkdir $semester/$ue/$module"
+                if cat "$setup" | grep -q "$cmd"; then
+                    echo "$file at line $c: A module ($module) must be defined only once."
                     error=true;break
                 fi
 
                 # APPEND COMMANDS TO SETUP SCRIPT
-                echo "mkdir $semester/$ue/$module" >> semscript.sh
+                echo "$cmd" >> "$setup"
                 ;;
             Teacher)
                 # CHECK & EXIT IF STRUCTURE ORDER IS INVALID
                 if [ "$order" = "module" ]; then
                     order="teacher"
                 else
-                    echo "Error at line $c: Invalid structure!"
+                    echo "$file at line $c: The module is not set."
                     error=true;break
                 fi
                 ;;
@@ -144,7 +163,7 @@ import() {
                 if [ "$order" = "teacher" ]; then
                     order="email"
                 else
-                    echo "Error at line $c: Invalid structure!"
+                    echo "$file at line $c: Please fill the Teacher field (name) before the Email field."
                     error=true;break
                 fi
                 ;;
@@ -153,40 +172,58 @@ import() {
                 if [ "$order" = "email" ] || [ "$order" = "teaching" ]; then
                     order="teaching"
                 else
-                    echo "Error at line $c: Invalid structure!"
+                    echo "$file at line $c: Email field is missing."
                     error=true;break
                 fi
 
                 # PROCESS VALUE
                 teaching_all=$(echo "$line" | cut -d : -f 2)
-                teaching=$(echo "$teaching_all" | cut -d , -f 1)
+                teaching_raw=$(echo "$teaching_all" | cut -d , -f 1)
                 teaching_coef=$(echo "$teaching_all" | cut -d , -f 2)
-                teaching=$(trimlts "$teaching")
-                teaching=$(spacend "$teaching")
+                teaching_raw=$(trimlts "$teaching_raw")
+                teaching=$(spacend "$teaching_raw")
 
-                # EXIT IF TEACHING DIR ALREADY EXISTS
-                if [ -d "$semester/$ue/$module/$teaching" ]; then
-                    echo "Error : $semester/$ue/$module/$teaching directory already exists!"
+                # VERIFY TEACHING NAME
+                if ! echo "$teaching_raw" | grep -qP "^[a-zA-Z- ]+$";then
+                    echo "$file at line $c: Incorrect teaching name."
+                    error=true;break
+                fi
+
+                # VERIFY COEFFICIENT
+                if ! echo "$teaching_all" | grep -q ",";then
+                    echo "$file at line $c: No coefficient set."
+                    error=true;break
+                elif ! echo "$teaching_coef" | grep -qP "^[01](.[0-9])?$" || [ "`echo "${teaching_coef} > 1" | bc`" -eq 1 ];then
+                    echo "$file at line $c: Incorrect coefficient."
+                    error=true;break
+                fi
+
+                # EXIT IF INSTRUCTION IS DUPLICATED
+                cmd="mkdir $semester/$ue/$module/$teaching"
+                if cat "$setup" | grep -q "$cmd"; then
+                    echo "$file at line $c: A teaching method ($teaching) must be defined only once for a same module."
                     error=true;break
                 fi
 
                 # APPEND COMMANDS TO SETUP SCRIPT
-                echo "mkdir $semester/$ue/$module/$teaching" >> semscript.sh
+                echo "$cmd" >> "$setup"
                 ;;
             *)
-                echo "$file at line $c : Field \"$prop\" not recognized! Please use Semester,UE,Module,Teacher,Email or Teaching."
+                echo "$file at line $c: Field \"$prop\" not recognized! Please use Semester,UE,Module,Teacher,Email or Teaching."
                 error=true;break
                 ;;
         esac
     done < "$file"
 
+    # RM SETUP SCRIPT & EXIT IF ERROR
     if "$error"; then
-        rm semscript.sh
-        exit 1
+        rm "$setup"
+        exit
     fi
 
-    #./semscript.sh
-    #cat "$file" > "$semester/semester.info"
-    #rm semscript.sh
+    echo "cat \"$file\" > \"$semester/semester.info\"" >> "$setup"
+    echo "echo \"Owner:$USER\" > $semester/semester.conf" >> "$setup"
+    `./$setup`
+    `rm $setup`
 
 }
